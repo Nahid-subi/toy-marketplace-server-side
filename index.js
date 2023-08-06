@@ -26,7 +26,17 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
 
+        const toyCollection = client.db('toyMarketUser').collection('allToys')
+
         const categoriesCollection = client.db('toyMarketUser').collection('categories');
+
+        app.get('/alltoys', async (req, res) => {
+            const cursor = toyCollection.find();
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+       
+
 
         app.get('/categories', async (req, res) => {
             const cursor = categoriesCollection.find();
@@ -69,6 +79,7 @@ async function run() {
                 res.status(500).send("Error finding the toy.");
             }
         });
+
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
