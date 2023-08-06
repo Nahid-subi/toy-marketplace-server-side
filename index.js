@@ -36,6 +36,21 @@ async function run() {
             res.send(result);
         })
        
+        app.get('/alltoys/:id', async (req, res) => {
+            const requestedId = req.params.id; // Get the id parameter from the request
+            try {
+                const cursor = toyCollection.find({ _id: new ObjectId(requestedId) });
+                const result = await cursor.toArray();
+
+                if (result.length > 0) {
+                    res.send(result);
+                } else {
+                    res.status(404).send("Toy not found.");
+                }
+            } catch (error) {
+                res.status(500).send("Error fetching the toy.");
+            }
+        });
 
 
         app.get('/categories', async (req, res) => {
