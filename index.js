@@ -25,17 +25,38 @@ async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
-
+        const newToysCollection = client.db('toyMarketUser').collection('newToys');
         const toyCollection = client.db('toyMarketUser').collection('allToys')
 
         const categoriesCollection = client.db('toyMarketUser').collection('categories');
+
+        app.post('/addtoy', async (req, res) => {
+            const newToy = req.body; // Assuming your client sends the new toy data in the request body
+
+            try {
+                const result = await newToysCollection.insertOne(newToy); // Use the new collection
+                res.status(201).json(result);
+            } catch (error) {
+                res.status(500).send("Error adding the toy.");
+            }
+        });
+
+        app.get('/allnewtoys', async (req, res) => {
+            try {
+                const cursor = newToysCollection.find();
+                const result = await cursor.toArray();
+                res.send(result);
+            } catch (error) {
+                res.status(500).send("Error fetching toys.");
+            }
+        });
 
         app.get('/alltoys', async (req, res) => {
             const cursor = toyCollection.find();
             const result = await cursor.toArray();
             res.send(result);
         })
-       
+
         app.get('/alltoys/:id', async (req, res) => {
             const requestedId = req.params.id; // Get the id parameter from the request
             try {
