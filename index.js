@@ -30,6 +30,13 @@ async function run() {
 
         const categoriesCollection = client.db('toyMarketUser').collection('categories');
 
+        app.delete('/allnewtoys/:id', async(req,res) => {
+            const id = req.params.id;
+            const query = {_id: new ObjectId(id)}
+            const result = await newToysCollection.deleteOne(query);
+            res.send(result)
+        })
+
         app.post('/addtoy', async (req, res) => {
             const newToy = req.body; // Assuming your client sends the new toy data in the request body
 
