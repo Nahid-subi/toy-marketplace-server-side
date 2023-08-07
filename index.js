@@ -30,6 +30,7 @@ async function run() {
 
         const categoriesCollection = client.db('toyMarketUser').collection('categories');
 
+        // this is for delete api delete my toy
         app.delete('/allnewtoys/:id', async(req,res) => {
             const id = req.params.id;
             const query = {_id: new ObjectId(id)}
@@ -37,6 +38,7 @@ async function run() {
             res.send(result)
         })
 
+        // this post for add a toy
         app.post('/addtoy', async (req, res) => {
             const newToy = req.body; // Assuming your client sends the new toy data in the request body
 
@@ -47,7 +49,8 @@ async function run() {
                 res.status(500).send("Error adding the toy.");
             }
         });
-// https://imgbb.com/
+
+        //this is get for my toy
         app.get('/allnewtoys', async (req, res) => {
             try {
                 const cursor = newToysCollection.find();
@@ -58,12 +61,14 @@ async function run() {
             }
         });
 
+        // this is get for all toy
         app.get('/alltoys', async (req, res) => {
             const cursor = toyCollection.find();
             const result = await cursor.toArray();
             res.send(result);
         })
 
+        //this is get for all toy by id
         app.get('/alltoys/:id', async (req, res) => {
             const requestedId = req.params.id; // Get the id parameter from the request
             try {
@@ -80,13 +85,14 @@ async function run() {
             }
         });
 
-
+        // this is for tabs
         app.get('/categories', async (req, res) => {
             const cursor = categoriesCollection.find();
             const result = await cursor.toArray();
             res.send(result);
         })
-
+        
+        //this is for tabs for id
         app.get('/categories/:id', async (req, res) => {
             const id = req.params.id;
             const query = {
