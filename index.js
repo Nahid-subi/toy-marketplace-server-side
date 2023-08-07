@@ -47,7 +47,7 @@ async function run() {
                 res.status(500).send("Error adding the toy.");
             }
         });
-
+// https://imgbb.com/
         app.get('/allnewtoys', async (req, res) => {
             try {
                 const cursor = newToysCollection.find();
