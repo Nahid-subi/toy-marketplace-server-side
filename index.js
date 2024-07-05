@@ -1,13 +1,17 @@
+require('dotenv').config()
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-require('dotenv').config()
+
 const app = express();
 const port = process.env.PORT || 5000;
 
 //middleware
 app.use(cors());
 app.use(express.json());
+
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0mmsquj.mongodb.net/?retryWrites=true&w=majority`;
@@ -21,45 +25,74 @@ const client = new MongoClient(uri, {
     }
 });
 
+const createToken = (user) => {
+    if (!user || !user.uid) {
+        throw new Error('User uid not provided');
+    }
+
+    try {
+        const token = jwt.sign(
+            { uid: user.uid },
+            process.env.TOKEN_SECRET,
+            { expiresIn: '7d' }
+        );
+        return token;
+    } catch (error) {
+        throw new Error('Failed to generate JWT token');
+    }
+};
+
+
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).send("Authorization header missing");
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    if (!token) {
+        return res.status(401).send("Token missing");
+    }
+
+    try {
+        const verified = jwt.verify(token, process.env.TOKEN_SECRET);
+
+        if (!verified?.uid) {
+            return res.status(403).send("You are not authorized");
+        }
+
+        req.user = verified.uid;
+        next();
+    } catch (err) {
+        return res.status(403).send("Invalid or expired token");
+    }
+};
+
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
-        const newToysCollection = client.db('toyMarketUser').collection('newToys');
         const toyCollection = client.db('toyMarketUser').collection('allToys')
+        const userCollection = client.db('toyMarketUser').collection('userCollection');
 
-        const categoriesCollection = client.db('toyMarketUser').collection('categories');
 
-        // this is for delete api delete my toy
-        app.delete('/allnewtoys/:id', async(req,res) => {
-            const id = req.params.id;
-            const query = {_id: new ObjectId(id)}
-            const result = await newToysCollection.deleteOne(query);
-            res.send(result)
-        })
+
 
         // this post for add a toy
-        app.post('/addtoy', async (req, res) => {
+        app.post('/addtoy',verifyToken, async (req, res) => {
             const newToy = req.body; // Assuming your client sends the new toy data in the request body
 
             try {
-                const result = await newToysCollection.insertOne(newToy); // Use the new collection
+                const result = await toyCollection.insertOne(newToy); // Use the new collection
                 res.status(201).json(result);
             } catch (error) {
                 res.status(500).send("Error adding the toy.");
             }
         });
 
-        //this is get for my toy
-        app.get('/allnewtoys', async (req, res) => {
-            try {
-                const cursor = newToysCollection.find();
-                const result = await cursor.toArray();
-                res.send(result);
-            } catch (error) {
-                res.status(500).send("Error fetching toys.");
-            }
-        });
 
         // this is get for all toy
         app.get('/alltoys', async (req, res) => {
@@ -85,49 +118,56 @@ async function run() {
             }
         });
 
-        // this is for tabs
-        app.get('/categories', async (req, res) => {
-            const cursor = categoriesCollection.find();
-            const result = await cursor.toArray();
-            res.send(result);
-        })
-        
-        //this is for tabs for id
-        app.get('/categories/:id', async (req, res) => {
-            const id = req.params.id;
-            const query = {
-                "subcategories.toys.id": id
-            };
-
+        app.get('/all_toys/:email', async (req, res) => {
             try {
-                const result = await categoriesCollection.findOne(query);
-
-                if (result) {
-                    // The toy with the specified ID was found
-                    const subcategories = result.subcategories;
-                    let foundToy = null;
-
-                    subcategories.forEach(subcategory => {
-                        const toys = subcategory.toys;
-                        foundToy = toys.find(toy => toy.id === id);
-                        if (foundToy) {
-                            // Break the loop if the toy is found
-                            return;
-                        }
-                    });
-
-                    if (foundToy) {
-                        res.send(foundToy);
-                    } else {
-                        res.status(404).send("Toy not found.");
-                    }
-                } else {
-                    res.status(404).send("Category not found.");
-                }
+                const email = req.params.email;
+                const query = { "seller.email": email };  // Adjust the query to match the nested email field
+                const cursor = toyCollection.find(query);
+                const result = await cursor.toArray();
+                res.status(200).json(result);
             } catch (error) {
-                res.status(500).send("Error finding the toy.");
+                console.error('Error fetching data:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
             }
         });
+
+        // // this is for delete api delete my toy
+        app.delete('/delete_toy/:id',verifyToken, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await toyCollection.deleteOne(query);
+            res.send(result)
+        })
+
+        app.put("/update_toy/:id", verifyToken,async (req, res) => {
+            const id = req.params.id;
+            const updateData = req.body;
+            const result = await toyCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: updateData },
+                { upsert: true }
+            );
+            res.send(result)
+        })
+
+
+
+
+        // user manage api
+        app.post("/user", async (req, res) => {
+            const user = req.body;
+            const token = createToken(user)
+            const findUser = await userCollection.findOne({ email: user.email });
+            if (findUser) {
+                return res.send({
+                    status: "success",
+                    message: "Login success",
+                    token
+                })
+            }
+            await userCollection.insertOne(user);
+            res.send(token)
+        })
 
 
         // Send a ping to confirm a successful connection
